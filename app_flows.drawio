@@ -1,6 +1,6 @@
-<mxfile host="Electron" modified="2024-03-22T09:28:24.452Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/22.0.2 Chrome/114.0.5735.289 Electron/25.8.4 Safari/537.36" etag="8F7iM_XyQL3LtdodQsDu" version="22.0.2" type="device">
+<mxfile host="Electron" modified="2024-03-22T09:45:36.739Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/22.0.2 Chrome/114.0.5735.289 Electron/25.8.4 Safari/537.36" etag="-p19qJ50IVu0zyT0x4ZE" version="22.0.2" type="device">
   <diagram name="Page-1" id="2YBvvXClWsGukQMizWep">
-    <mxGraphModel dx="2632" dy="735" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1782" dy="735" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -42,9 +42,6 @@
         <mxCell id="R9RrN_RlZ74akKqqiqNs-31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="R9RrN_RlZ74akKqqiqNs-5" target="R9RrN_RlZ74akKqqiqNs-27">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="R9RrN_RlZ74akKqqiqNs-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="R9RrN_RlZ74akKqqiqNs-5" target="R9RrN_RlZ74akKqqiqNs-28">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="R9RrN_RlZ74akKqqiqNs-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="R9RrN_RlZ74akKqqiqNs-5" target="R9RrN_RlZ74akKqqiqNs-29">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -56,8 +53,8 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="R9RrN_RlZ74akKqqiqNs-5" value="Func {warm_up_model&lt;span style=&quot;background-color: initial;&quot;&gt;}&lt;/span&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="210" y="605" width="200" height="60" as="geometry" />
+        <mxCell id="R9RrN_RlZ74akKqqiqNs-5" value="Func {warm_up_model&lt;span style=&quot;background-color: initial;&quot;&gt;}&lt;/span&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="600" width="200" height="60" as="geometry" />
         </mxCell>
         <mxCell id="R9RrN_RlZ74akKqqiqNs-7" value="Func {arrivals&lt;span style=&quot;background-color: initial;&quot;&gt;}&lt;/span&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="780" y="605" width="200" height="60" as="geometry" />
@@ -128,8 +125,8 @@
             <mxPoint x="290" y="770" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="R9RrN_RlZ74akKqqiqNs-40" value="This &lt;font color=&quot;#ef0b0b&quot;&gt;function &lt;/font&gt;is coupled, need to split it out&amp;nbsp;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
-          <mxGeometry x="-40" y="585" width="120" height="90" as="geometry" />
+        <mxCell id="R9RrN_RlZ74akKqqiqNs-42" value="Func {warm_up_model&lt;span style=&quot;background-color: initial;&quot;&gt;}&lt;/span&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="270" y="605" width="200" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
