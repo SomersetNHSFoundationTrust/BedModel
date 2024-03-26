@@ -1,8 +1,13 @@
 import numpy as np
+from typing import Protocol
 
 from .tools import Unique
 
-class PatientGenerator:
+class PatientGenerator(Protocol):
+    def patient_generator(self) -> None:
+        pass
+
+class BasicPatientGenerator:
     def __init__(self, source_probability, category_probability, los_distributions):
 
         self.source_probability = source_probability
