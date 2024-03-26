@@ -10,6 +10,17 @@ class PatientGenerator:
         self.los_distributions = los_distributions
 
         self.unique = Unique()
+        self.probabilities = self.__calculate_probabilities()
+
+    def __calculate_probabilities(self):
+        probabilities = {}
+        for source, source_probability in self.source_probability.items():
+            for category, category_probability in self.category_probability.get(source, {None:1}).items():
+                probabilities[(source, category)] = source_probability * category_probability
+
+        assert np.isclose(sum(probabilities.values()), 1), "Probabilities do not sum to 1"
+
+        return probabilities
 
     def patient_generator(self, n, warm=False, source_=None):
         """
@@ -19,170 +30,29 @@ class PatientGenerator:
         :param n: Number of patients to generate
         :return: patients to patient_master
         """
-        patients_data = []
-        if warm:
+        keys = list(self.probabilities.keys())
+        probs = list(self.probabilities.values())
 
-            for i in range(0, n):
-
-                patient_id, source, category, los, continuing_los = self.unique.next_counter(), None, None, None, 0
-
-                # TODO: I wonder if it's better to multiply this out, then randomly select the resultant tuple with probabilities...
-                # - Could use an nx graph here, with the los generator being a node attribute on the terminal nodes?
-
-                source = np.random.choice(['Emergency Department', 'Non-ED Admission', 'Elective'],
-                                          1,
-                                          p=[self.source_probability.get('Emergency Department'),
-                                             self.source_probability.get('Non-ED Admissions'),
-                                             self.source_probability.get('Waiting List')]).item(0)
-
-                # Get the corresponding probability that the Patient will be Elective, Surgical Emergency or Medical Emergency
-
-                if source == 'Emergency Department':
-                    category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                1,
-                                                p=[self.category_probability.get(source)['Elective'],
-                                                   self.category_probability.get(source)['Surgical Emergency'],
-                                                   self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                    # Pick from a los distribution using the mean and sigma !! Assuming that LOS is log normal just while building, need to check this
-
-                    if category == 'Elective':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                      self.los_distributions.get(source)['Elective'][1],
-                                                      1).item(0))
-
-                    elif category == 'Surgical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                      self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                      1).item(0))
-
-                    elif category == 'Medical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                      self.los_distributions.get(source)['Medical Emergency'][1],
-                                                      1).item(0))
-
-                elif source == 'Non-ED Admission':
-                    category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                1,
-                                                p=[self.category_probability.get(source)['Elective'],
-                                                   self.category_probability.get(source)['Surgical Emergency'],
-                                                   self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                    if category == 'Elective':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                      self.los_distributions.get(source)['Elective'][1],
-                                                      1).item(0))
-
-                    elif category == 'Surgical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                      self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                      1).item(0))
-
-                    elif category == 'Medical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                      self.los_distributions.get(source)['Medical Emergency'][1],
-                                                      1).item(0))
-
-                elif source == 'Elective':
-                    # Waiting List patients will always be admitted as an Elective
-                    category = 'Elective'
-                    los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                  self.los_distributions.get(source)['Elective'][1],
-                                                  1).item(0))
-
-                # TODO: Suggestion, if patient_data was a dict (or dataclass?), we could reference parameters without relying on positioning
-                patient_data = [patient_id, source, category, los, continuing_los]
-
-                patients_data.append(patient_data)
-
-        else:
-            # TODO: This can be combined with the above section (pulling the source_ stuff out)
-            if source_:
-
-                for i in range(0, n):
-
-                    patient_id, source, category, los, continuing_los = self.unique.next_counter(), None, None, None, 0
-
-                    if source_=='Emergency Department':
-
-                        source = 'Emergency Department'
-
-                        category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                    1,
-                                                    p=[self.category_probability.get(source)['Elective'], # Don't think this needs to be in,
-                                                       self.category_probability.get(source)['Surgical Emergency'],
-                                                       self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                        if category == 'Elective':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                          self.los_distributions.get(source)['Elective'][1],
-                                                          1).item(0))
-
-                        elif category == 'Surgical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                          self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                          1).item(0))
-
-                        elif category == 'Medical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                          self.los_distributions.get(source)['Medical Emergency'][1],
-                                                          1).item(0))
-
-                    elif source_=='Non-ED Admissions':
-
-                        source = 'Non-ED Admissions'
-
-                        category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                    1,
-                                                    p=[self.category_probability.get(source)['Elective'],
-                                                       self.category_probability.get(source)['Surgical Emergency'],
-                                                       self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                        if category == 'Elective':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                          self.los_distributions.get(source)['Elective'][1],
-                                                          1).item(0))
-
-                        elif category == 'Surgical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                          self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                          1).item(0))
-
-                        elif category == 'Medical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                          self.los_distributions.get(source)['Medical Emergency'][1],
-                                                          1).item(0))
-
-                    elif source_=='Waiting List':
-
-                        source = 'Waiting List'
-
-                        category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                    1,
-                                                    p=[self.category_probability.get(source)['Elective'],
-                                                       self.category_probability.get(source)['Surgical Emergency'],
-                                                       self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                        if category == 'Elective':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                          self.los_distributions.get(source)['Elective'][1],
-                                                          1).item(0))
-
-                        elif category == 'Surgical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                          self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                          1).item(0))
-
-                        elif category == 'Medical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                          self.los_distributions.get(source)['Medical Emergency'][1],
-                                                          1).item(0))
-
-                    patient_data = [patient_id, source, category, los, continuing_los]
-
-                    patients_data.append(patient_data)
-
-            else:
+        if warm == False:
+            if not source_:
                 raise Exception('A source has not been specified for the patient to be generated')
+            keys, probs = zip(*self.category_probability[source_].items())
+            keys = [(source_, category) for category in keys]
 
-        return patients_data
+
+        choices = np.random.choice([*range(len(keys))], p = probs, size=n)
+
+        patients_info = []
+        for choice in choices:
+            source, category = keys[choice]
+
+            # TODO: this is a bit of a hack that we should have a think about...
+            if source == "Waiting List":
+                source = "Elective"
+                category = "Elective"
+
+            los = int(np.random.lognormal(*self.los_distributions[source][category]))
+
+            patients_info.append([self.unique.next_counter(), source, category, los, 0])
+
+        return patients_info
