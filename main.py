@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import pandas as pd
+from modules.metrics import *
 from modules.tools import Unique
 from modules.patient import PatientGenerator, BasicPatientGenerator
 import plotly.graph_objects as go
