@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
 from modules.tools import Unique
+from modules.patient import PatientGenerator
 from modules.metrics import *
 import plotly.graph_objects as go
 
@@ -37,28 +36,24 @@ class BedModel:
     hospital.warm_up_model(warmup_number=warmup_n)
 
     """
-    def __init__(self, n_elective_beds, n_surgical_emergency_beds, n_medical_emergency_beds, n_escalation_beds, source_probability, category_probability, los_distributions, time_matrix):
+
+    def __init__(self, n_elective_beds, n_surgical_emergency_beds, n_medical_emergency_beds, n_escalation_beds,
+                 time_matrix, PG: PatientGenerator):
         """
 
         :param n_elective_beds:
         :param n_surgical_emergency_beds:
         :param n_medical_emergency_beds:
         :param n_escalation_beds:
-        :param source_probability:
-        :param category_probability:
-        :param los_distributions:
         :param time_matrix:
         """
         # Total Beds
-        self.n_elective_beds = n_elective_beds # ? can these four use a dictionary to reduce n parameters
+        self.n_elective_beds = n_elective_beds  # ? can these four use a dictionary to reduce n parameters
         self.n_surgical_emergency_beds = n_surgical_emergency_beds
         self.n_medical_emergency_beds = n_medical_emergency_beds
         self.n_escalation_beds = n_escalation_beds
 
         # Global Variables
-        self.los_distributions = los_distributions
-        self.category_probability = category_probability
-        self.source_probability = source_probability
         self.time_matrix = time_matrix
         self.time = []
         self.run_name = []
@@ -70,208 +65,34 @@ class BedModel:
         self.occupied_escalation_beds = []
 
         # All Patients
-        self.patient_master = [] # A master holding place for the warm-up patients so that it can be replicated each run
-        self.unique = None
+        # TODO: parameterise this outside of this class and pass the object
+        self.PG = PG  # A master holding place for the warm-up patients so that it can be replicated each run
+        self.patient_master = []
 
         # Holding Places
-        self.ed_queue = [] # If an emergency patient they wait here (trolley wait)
-        self.non_ed_queue = [] # If an emergency patient they wait here
-        self.Elective_queue = [] # If an Elective patient they wait here
+        self.ed_queue = []  # If an emergency patient they wait here (trolley wait)
+        self.non_ed_queue = []  # If an emergency patient they wait here
+        self.Elective_queue = []  # If an Elective patient they wait here
 
         # Metrics
-        self.Elective_cancellations = [] # If a patient from the Waiting List cannot be admitted they are cancelled
-        self.record_available_beds = {'Elective': [], 'surgical emergency': [], 'medical emergency': [], 'escalation': []}
-        self.record_n_occupied_beds = {'Elective': [], 'surgical emergency': [], 'medical emergency': [], 'escalation': []}
+        self.Elective_cancellations = []  # If a patient from the Waiting List cannot be admitted they are cancelled
+        self.record_available_beds = {'Elective': [], 'surgical emergency': [], 'medical emergency': [],
+                                      'escalation': []}
+        self.record_n_occupied_beds = {'Elective': [], 'surgical emergency': [], 'medical emergency': [],
+                                       'escalation': []}
         self.record_n_outliers = {'Elective': [], 'surgical emergency': [], 'medical emergency': []}
         self.record_n_escalation = []
         self.record_n_admissions_by_hour = []
         self.record_n_discharges_by_hour = []
-        self.record_mean_length_of_stay = [] # wondering if there is any use in recording this
+        self.record_mean_length_of_stay = []  # wondering if there is any use in recording this
         self.record_mean_ed_queue = []
         self.record_mean_non_ed_queue = []
         self.record_n_trolley_waits = []
         self.record_n_cancellations = []
 
-
     # Tools
 
     # These functions are used as tools throughout the model
-
-    def patient_generator(self, n, warm=False, source_=None):
-        """
-        Create stochastic patients based on probability and distributions
-        :param source_: the type of patient to generate
-        :param warm: whether to generate from warmup
-        :param n: Number of patients to generate
-        :return: patients to patient_master
-        """
-        if warm:
-            for i in range(0, n):
-
-                patient_id, source, category, los, continuing_los = self.unique.next_counter(), None, None, None, 0
-
-                # TODO: I wonder if it's better to multiply this out, then randomly select the resultant tuple with probabilities...
-                # - Could use an nx graph here, with the los generator being a node attribute on the terminal nodes?
-
-                source = np.random.choice(['Emergency Department', 'Non-ED Admission', 'Elective'],
-                                          1,
-                                          p=[self.source_probability.get('Emergency Department'),
-                                             self.source_probability.get('Non-ED Admissions'),
-                                             self.source_probability.get('Waiting List')]).item(0)
-
-                # Get the corresponding probability that the Patient will be Elective, Surgical Emergency or Medical Emergency
-
-                if source == 'Emergency Department':
-                    category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                1,
-                                                p=[self.category_probability.get(source)['Elective'],
-                                                   self.category_probability.get(source)['Surgical Emergency'],
-                                                   self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                    # Pick from a los distribution using the mean and sigma !! Assuming that LOS is log normal just while building, need to check this
-
-                    if category == 'Elective':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                      self.los_distributions.get(source)['Elective'][1],
-                                                      1).item(0))
-
-                    elif category == 'Surgical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                      self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                      1).item(0))
-
-                    elif category == 'Medical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                      self.los_distributions.get(source)['Medical Emergency'][1],
-                                                      1).item(0))
-
-                elif source == 'Non-ED Admission':
-                    category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                1,
-                                                p=[self.category_probability.get(source)['Elective'],
-                                                   self.category_probability.get(source)['Surgical Emergency'],
-                                                   self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                    if category == 'Elective':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                      self.los_distributions.get(source)['Elective'][1],
-                                                      1).item(0))
-
-                    elif category == 'Surgical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                      self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                      1).item(0))
-
-                    elif category == 'Medical Emergency':
-                        los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                      self.los_distributions.get(source)['Medical Emergency'][1],
-                                                      1).item(0))
-
-                elif source == 'Elective':
-                    # Waiting List patients will always be admitted as an Elective
-                    category = 'Elective'
-                    los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                  self.los_distributions.get(source)['Elective'][1],
-                                                  1).item(0))
-
-                # TODO: Suggestion, if patient_data was a dict (or dataclass?), we could reference parameters without relying on positioning
-                patient_data = [patient_id, source, category, los, continuing_los]
-
-                self.patient_master.append(patient_data)
-
-        else:
-            if source_:
-
-                for i in range(0, n):
-
-                    patient_id, source, category, los, continuing_los = self.unique.next_counter(), None, None, None, 0
-
-                    if source_=='Emergency Department':
-
-                        source = 'Emergency Department'
-
-                        category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                    1,
-                                                    p=[self.category_probability.get(source)['Elective'], # Don't think this needs to be in,
-                                                       self.category_probability.get(source)['Surgical Emergency'],
-                                                       self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                        if category == 'Elective':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                          self.los_distributions.get(source)['Elective'][1],
-                                                          1).item(0))
-
-                        elif category == 'Surgical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                          self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                          1).item(0))
-
-                        elif category == 'Medical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                          self.los_distributions.get(source)['Medical Emergency'][1],
-                                                          1).item(0))
-
-                    elif source_=='Non-ED Admissions':
-
-                        source = 'Non-ED Admissions'
-
-                        category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                    1,
-                                                    p=[self.category_probability.get(source)['Elective'],
-                                                       self.category_probability.get(source)['Surgical Emergency'],
-                                                       self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                        if category == 'Elective':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                          self.los_distributions.get(source)['Elective'][1],
-                                                          1).item(0))
-
-                        elif category == 'Surgical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                          self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                          1).item(0))
-
-                        elif category == 'Medical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                          self.los_distributions.get(source)['Medical Emergency'][1],
-                                                          1).item(0))
-
-                    elif source_=='Waiting List':
-
-                        source = 'Waiting List'
-
-                        category = np.random.choice(['Elective', 'Surgical Emergency', 'Medical Emergency'],
-                                                    1,
-                                                    p=[self.category_probability.get(source)['Elective'],
-                                                       self.category_probability.get(source)['Surgical Emergency'],
-                                                       self.category_probability.get(source)['Medical Emergency']]).item(0)
-
-                        if category == 'Elective':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Elective'][0],
-                                                          self.los_distributions.get(source)['Elective'][1],
-                                                          1).item(0))
-
-                        elif category == 'Surgical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Surgical Emergency'][0],
-                                                          self.los_distributions.get(source)['Surgical Emergency'][1],
-                                                          1).item(0))
-
-                        elif category == 'Medical Emergency':
-                            los = int(np.random.lognormal(self.los_distributions.get(source)['Medical Emergency'][0],
-                                                          self.los_distributions.get(source)['Medical Emergency'][1],
-                                                          1).item(0))
-
-                    patient_data = [patient_id, source, category, los, continuing_los]
-
-                    # TODO: This will return on the first iteration, check that this is desired.
-                    return patient_data
-
-            else:
-                raise Exception('A source has not been specified for the patient to be generated')
-
-
-
-    # This function acts as a warm-up, setting the starting figures in the simulation, so it does not begin with an empty system
 
     def warm_up_model(self, warmup_number):
         """
@@ -280,17 +101,15 @@ class BedModel:
         :return:
         """
 
-        self.unique = Unique()
-
         if warmup_number > self.n_surgical_emergency_beds + self.n_elective_beds + self.n_medical_emergency_beds + self.n_escalation_beds:
             raise ValueError("The number of patients at warm-up cannot exceed the beds available")
 
         else:
-            self.patient_generator(n=warmup_number, warm=True)
+            patients = self.PG.patient_generator(n=warmup_number, warm=True)
+            self.patient_master += patients
 
         # Admit patients
         self.admit_patient(warm=True)
-
 
     # Core Functions
 
@@ -322,7 +141,6 @@ class BedModel:
             self.occupied_escalation_beds = [sublist for sublist in self.occupied_escalation_beds if sublist[3] != 0]
 
         self.record_n_discharges_by_hour.append(discharged)
-
 
     def cancel_patient(self):
         """
@@ -377,7 +195,6 @@ class BedModel:
         if len(self.non_ed_queue)>0:
             for patient in self.non_ed_queue:
                 patient[4] = increase(patient[4])
-
 
     def admit_patient(self, warm):
         """
@@ -446,7 +263,6 @@ class BedModel:
                     for patient_index in patients_in_beds[::-1]:
                         del queue[patient_index]
 
-
     def __handle_medical_emergency(self, patient):
         """
         This method assigns the provided patient to an available bed according to the severity of the medical emergency.
@@ -466,7 +282,6 @@ class BedModel:
             patient_in_bed = False
 
         return patient_in_bed
-
 
     def __handle_surgical_emergency(self, patient):
         """
@@ -511,7 +326,6 @@ class BedModel:
 
         return patient_in_bed
 
-
     def arrivals(self, hour, weekday):
         """
         This function handles generating the new arrivals each hour and puts them in the holding area ready for the admit function
@@ -524,25 +338,25 @@ class BedModel:
 
         if number_being_admitted_emergency_department:
 
-            new = self.patient_generator(n=number_being_admitted_emergency_department, source_='Emergency Department')
+            new = self.PG.patient_generator(n=number_being_admitted_emergency_department, source_='Emergency Department')
 
-            self.ed_queue.append(new)
+            # TODO: Should this be an append or an add? (Same for below)
+            self.ed_queue += new
 
         if number_being_admitted_non_emergency_department:
 
             # TODO: is this source correct?
-            new = self.patient_generator(n=number_being_admitted_emergency_department, source_='Elective')
+            new = self.PG.patient_generator(n=number_being_admitted_emergency_department, source_='Elective')
 
             # TODO: Should this be non_ed_queue?
-            self.ed_queue.append(new)
+            self.ed_queue += new
 
         if number_being_admitted_n_elective:
 
-            new = self.patient_generator(n=number_being_admitted_emergency_department, source_='Elective')
+            new = self.PG.patient_generator(n=number_being_admitted_emergency_department, source_='Elective')
 
             # TODO: Should this be Elective_queue?
-            self.ed_queue.append(new)
-
+            self.ed_queue += new
 
     # End Results
 
@@ -563,13 +377,19 @@ class BedModel:
             'Available Elective': self.record_available_beds['Elective'],
             'Available escalation': self.record_available_beds['escalation'],
 
-            'Occupied medical emergency': self.record_n_occupied_beds['medical emergency'] if self.record_n_occupied_beds['medical emergency'] else None,
-            'Occupied surgical emergency': self.record_n_occupied_beds['surgical emergency'] if self.record_n_occupied_beds['surgical emergency'] else None,
-            'Occupied Elective': self.record_n_occupied_beds['Elective'] if self.record_n_occupied_beds['Elective'] else None,
-            'Occupied escalation': self.record_n_occupied_beds['escalation'] if self.record_n_occupied_beds['escalation'] else None,
+            'Occupied medical emergency': self.record_n_occupied_beds['medical emergency'] if
+            self.record_n_occupied_beds['medical emergency'] else None,
+            'Occupied surgical emergency': self.record_n_occupied_beds['surgical emergency'] if
+            self.record_n_occupied_beds['surgical emergency'] else None,
+            'Occupied Elective': self.record_n_occupied_beds['Elective'] if self.record_n_occupied_beds[
+                'Elective'] else None,
+            'Occupied escalation': self.record_n_occupied_beds['escalation'] if self.record_n_occupied_beds[
+                'escalation'] else None,
 
-            'Medical Outliers': self.record_n_outliers['medical emergency'] if self.record_n_outliers['medical emergency'] else None,
-            'Surgical Outliers': self.record_n_outliers['surgical emergency'] if self.record_n_outliers['surgical emergency'] else None,
+            'Medical Outliers': self.record_n_outliers['medical emergency'] if self.record_n_outliers[
+                'medical emergency'] else None,
+            'Surgical Outliers': self.record_n_outliers['surgical emergency'] if self.record_n_outliers[
+                'surgical emergency'] else None,
             'Elective Outliers': self.record_n_outliers['Elective'] if self.record_n_outliers['Elective'] else None,
 
             'Escalation Beds Used': self.record_n_escalation if self.record_n_escalation else None,
@@ -584,10 +404,9 @@ class BedModel:
         df['Medical Bed % Occ'] = df['Occupied medical emergency'] / df['Available medical emergency']
         df['Surgical Bed % Occ'] = df['Occupied surgical emergency'] / df['Available surgical emergency']
         df['Elective Bed % Occ'] = df['Occupied Elective'] / df['Available Elective']
-        df['Escalation Bed % Occ'] = df['Occupied escalation'] /df['Available escalation']
+        df['Escalation Bed % Occ'] = df['Occupied escalation'] / df['Available escalation']
 
         return df
-
 
     def graph_results(self, graph='occupied'):
         """
@@ -602,26 +421,23 @@ class BedModel:
             fig = go.Figure()
 
             for i in run_names:
-
-                fig.add_trace(go.Scatter(x=data[data['Run Name']==i]['DateTime'],
-                                         y=data[data['Run Name']==i]['Occupied medical emergency'],
+                fig.add_trace(go.Scatter(x=data[data['Run Name'] == i]['DateTime'],
+                                         y=data[data['Run Name'] == i]['Occupied medical emergency'],
                                          name='Occupied Medical Emergency Beds'))
 
-                fig.add_trace(go.Scatter(x=data[data['Run Name']==i]['DateTime'],
-                                         y=data[data['Run Name']==i]['Occupied surgical emergency'],
+                fig.add_trace(go.Scatter(x=data[data['Run Name'] == i]['DateTime'],
+                                         y=data[data['Run Name'] == i]['Occupied surgical emergency'],
                                          name='Occupied Surgical Emergency Beds'))
 
-                fig.add_trace(go.Scatter(x=data[data['Run Name']==i]['DateTime'],
-                                         y=data[data['Run Name']==i]['Occupied Elective'],
+                fig.add_trace(go.Scatter(x=data[data['Run Name'] == i]['DateTime'],
+                                         y=data[data['Run Name'] == i]['Occupied Elective'],
                                          name='Occupied Elective Beds'))
 
-                fig.add_trace(go.Scatter(x=data[data['Run Name']==i]['DateTime'],
-                                         y=data[data['Run Name']==i]['Occupied escalation'],
+                fig.add_trace(go.Scatter(x=data[data['Run Name'] == i]['DateTime'],
+                                         y=data[data['Run Name'] == i]['Occupied escalation'],
                                          name='Occupied Escalation Beds'))
 
-            fig.update_layout(margin=dict(t=10,l=10,r=10,b=10), template='seaborn')
-
-
+            fig.update_layout(margin=dict(t=10, l=10, r=10, b=10), template='seaborn')
 
             return fig
 
@@ -694,4 +510,3 @@ class BedModel:
 
 
                 current_time += timedelta(hours=1)
-
