@@ -3,11 +3,9 @@ from typing import Protocol
 
 from .tools import Unique
 
-
 class PatientGenerator(Protocol):
     def patient_generator(self) -> None:
         pass
-
 
 class BasicPatientGenerator:
     def __init__(self, source_probability, category_probability, los_distributions):
@@ -22,7 +20,7 @@ class BasicPatientGenerator:
     def __calculate_probabilities(self):
         probabilities = {}
         for source, source_probability in self.source_probability.items():
-            for category, category_probability in self.category_probability.get(source, {None: 1}).items():
+            for category, category_probability in self.category_probability.get(source, {None:1}).items():
                 probabilities[(source, category)] = source_probability * category_probability
 
         assert np.isclose(sum(probabilities.values()), 1), "Probabilities do not sum to 1"
@@ -46,7 +44,8 @@ class BasicPatientGenerator:
             keys, probs = zip(*self.category_probability[source_].items())
             keys = [(source_, category) for category in keys]
 
-        choices = np.random.choice([*range(len(keys))], p=probs, size=n)
+
+        choices = np.random.choice([*range(len(keys))], p = probs, size=n)
 
         patients_info = []
         for choice in choices:
