@@ -1,5 +1,5 @@
 import pytest
-from ...patient import PatientGenerator
+from ...patient import BasicPatientGenerator
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def sample_patient_generator():
         'Non-ED Admission': {'Elective': (1.5, 0.6), 'Surgical Emergency': (2.5, 0.8), 'Medical Emergency': (3.5, 1.2)},
         'Elective': {'Elective': (2, 0.7)}
     }
-    return PatientGenerator(source_prob, category_prob, los_distributions)
+    return BasicPatientGenerator(source_prob, category_prob, los_distributions)
 
 
 def test_patient_generator_output(sample_patient_generator):

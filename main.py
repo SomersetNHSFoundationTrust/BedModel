@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
-from modules.tools import Unique
-from modules.patient import PatientGenerator
+import pandas as pd
 from modules.metrics import *
+from modules.tools import Unique
+from modules.patient import PatientGenerator, BasicPatientGenerator
 import plotly.graph_objects as go
+
 
 
 class BedModel:
@@ -66,8 +68,8 @@ class BedModel:
 
         # All Patients
         # TODO: parameterise this outside of this class and pass the object
-        self.PG = PG  # A master holding place for the warm-up patients so that it can be replicated each run
-        self.patient_master = []
+        self.PG = PG
+        self.patient_master = [] # A master holding place for the warm-up patients so that it can be replicated each run
 
         # Holding Places
         self.ed_queue = []  # If an emergency patient they wait here (trolley wait)
@@ -90,17 +92,13 @@ class BedModel:
         self.record_n_trolley_waits = []
         self.record_n_cancellations = []
 
-    # Tools
-
-    # These functions are used as tools throughout the model
-
+    # This function acts as a warm-up, setting the starting figures in the simulation, so it does not begin with an empty system
     def warm_up_model(self, warmup_number):
         """
 
         :param warmup_number: Number of patients to be generated at warm up
         :return:
         """
-
         if warmup_number > self.n_surgical_emergency_beds + self.n_elective_beds + self.n_medical_emergency_beds + self.n_escalation_beds:
             raise ValueError("The number of patients at warm-up cannot exceed the beds available")
 
@@ -510,3 +508,62 @@ class BedModel:
 
 
                 current_time += timedelta(hours=1)
+
+ 
+if __name__ == '__main__':
+    warmup_n = 574
+
+    source_prob = {"Emergency Department": 0.8, "Non-ED Admission": 0.14, "Waiting List": 0.06}
+
+    category_prob = {"Emergency Department": {'Elective':0, 'Surgical Emergency':0.2, 'Medical Emergency':0.8},
+                     "Non-ED Admission": {'Elective':0, 'Surgical Emergency':0.4, 'Medical Emergency':0.6},
+                     "Elective": {"Elective": 1}
+                     }
+
+    los_distributions = {
+        'Emergency Department': {'Elective': (1, 0.5), 'Surgical Emergency': (2, 0.7), 'Medical Emergency': (3, 1)},
+        'Non-ED Admission': {'Elective': (1.5, 0.6), 'Surgical Emergency': (2.5, 0.8), 'Medical Emergency': (3.5, 1.2)},
+        'Elective': {'Elective': (2, 0.7)}
+    }
+
+    PG = BasicPatientGenerator(source_prob, category_prob, los_distributions)
+
+    arrivals_mapping = {'Emergency Department': {'Monday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                                 'Tuesday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                                 'Wednesday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                                 'Thursday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                                 'Friday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                                 'Saturday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                                 'Sunday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1]},
+                        'Non-ED Admission': {'Monday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                             'Tuesday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                             'Wednesday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                             'Thursday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                             'Friday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                             'Saturday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                             'Sunday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1]},
+                        'Elective': {'Monday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                     'Tuesday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                     'Wednesday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                     'Thursday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                     'Friday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                     'Saturday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1],
+                                     'Sunday': [1,2,4,5,2,5,8,5,6,5,8,5,4,5,2,1,4,5,6,9,8,7,0,1]}}
+
+    start_time = datetime(2024, 1, 1, 0, 0, 0)
+    end_time = datetime(2024, 1, 31, 0, 0, 0)
+
+    hospital = BedModel(n_elective_beds=40,
+                        n_surgical_emergency_beds=120,
+                        n_medical_emergency_beds=450,
+                        n_escalation_beds=20,
+                        PG = PG,
+                        time_matrix=arrivals_mapping)
+
+    hospital.warm_up_model(warmup_number=warmup_n)
+
+    hospital.simulate_inpatient_system(start_time=start_time,
+                                       end_time=end_time,
+                                       runs=10)
+
+    hospital.graph_results()
